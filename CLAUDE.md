@@ -49,10 +49,29 @@ enable saving.
 `extract_bpe()` → the 159-byte record is decoded by `Stat_Editor.stat_from_data()` into a
 flat list → all records collect into `Stat_Editor.stat_list` (one list per superstar).
 
-**Edit:** the GUI reads and writes `stat_list` **by numeric index** (see `FIELDS` in
-[`Stat_Editor.py`](Stat_Editor.py) and `STAT_FIELDS` in
+**Edit:** the GUI is a two-panel layout — a **searchable roster list** (`QListWidget`)
+on the left, the editor form on the right, and a full-width **change log** below both.
+Vertical resizing grows the log (not the roster), and the window's minimum height is
+pinned to the form's natural height so the combos never squash. Picking a row selects a
+superstar; the GUI reads and writes `stat_list` **by numeric index** (see `FIELDS` in [`Stat_Editor.py`](Stat_Editor.py) and `STAT_FIELDS` in
 [`layout_stat_editor_gui.py`](layout_stat_editor_gui.py)). "Set stat" copies widget
 values back into the record's list; "Default" restores from `backup_stat`.
+
+**Change log.** `set_stat` snapshots the record before applying, diffs each field
+(attributes shown ×5, combos labelled via `combo_text_for_value`), and appends a block
+to the black `log_view` (`QPlainTextEdit`) via `log_change` — `"Changed: 0xNN : Name"`,
+a blank line, one `Field: old -> new` per change, then `---`. Only changed fields are
+logged; an unchanged "Set stat" adds nothing. `log_message` appends plain status lines
+to the same panel — Open logs `Opening file...` / `Opened <path>` (only on an
+interactive open, not the reopen after Save), and Save logs `Saving file...` /
+`Saved file at <path>. Restore your backup ...`.
+
+**Roster search.** The left panel's search box (`filter_superstar_list`) is a
+case-insensitive **substring filter** over each row's whole `"0xNN : Name"` label, so a
+name (`edge`) or a hex (`0a`) both narrow the list; a query matching nothing hides every
+row. It only shows/hides rows — the parsed hex → `stat_list` index mapping is unchanged.
+The roster labels are (re)built from `stat_list` in `update_superstar_list`, called on
+open (and after Save, which reopens the file).
 
 **Save:** `data_from_stat()` re-encodes each record → written to a temp file →
 recompressed by shelling out to `bpe.exe` → a `BPE ` header is prepended →
