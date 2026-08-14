@@ -7,11 +7,11 @@ import shutil
 import sys
 
 from PyQt5.QtCore import QRect
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QFont, QIcon
 from PyQt5.QtWidgets import (
     QAction, QApplication, QComboBox, QFileDialog, QGridLayout, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QProgressBar,
-    QPushButton, QSpinBox, QVBoxLayout, QWidget,
+    QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox, QPlainTextEdit,
+    QProgressBar, QPushButton, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from Stat_Editor import Stat_Editor
@@ -72,9 +72,10 @@ class Application(object):
         # On-screen position (x=20, y=40) + a fallback size; the width/height
         # here are overridden by the resize() at the end of __init__.
         self.win.setGeometry(QRect(20, 40, 800, 640))
-        # Hard floor: the window can never be dragged/resized smaller than this.
-        # Must be <= the startup size below, or it snaps the window back up.
-        self.win.setMinimumSize(600, 400)
+        # Minimum WIDTH floor (the window can never be narrower than this). The
+        # minimum HEIGHT is set later from the form's natural height, so the
+        # window can't shrink into the combos -- see setMinimumHeight below.
+        self.win.setMinimumWidth(600)
         self.win.setWindowTitle(WINDOW_TITLE)
 
         self.bar = self.win.menuBar()
@@ -192,13 +193,31 @@ class Application(object):
         self.right_widget.setMaximumWidth(300)
         self.main_layout.addWidget(self.left_widget, 1)
         self.main_layout.addWidget(self.right_widget, 0)
-        self.widget.setLayout(self.main_layout)
+
+        # --- change log: full-width black panel below both columns ------------
+        self.log_view = QPlainTextEdit()
+        self.log_view.setReadOnly(True)
+        self.log_view.setMinimumHeight(120)
+        self.log_view.setStyleSheet(
+            "QPlainTextEdit { background-color: #000000; color: #FFFFFF; }")
+        self.log_view.setFont(QFont("Consolas", 9))
+
+        # Stack the two-column area above the full-width log. Stretch 0/1 sends
+        # all vertical growth to the log, so resizing taller grows the log panel
+        # (not the roster list, which keeps the columns' natural height).
+        self.outer_layout = QVBoxLayout()
+        self.outer_layout.addLayout(self.main_layout, 0)
+        self.outer_layout.addWidget(self.log_view, 1)
+        self.widget.setLayout(self.outer_layout)
         self.win.setCentralWidget(self.widget)
         self.set_enabled(False)
-        # Shrink the window to the form's natural height (+ a little space below
-        # the Height combo) instead of leaving a tall empty gap. Width is kept.
+        # Form's natural height (+ a little space below the Height combo). This
+        # is both the startup height and the vertical floor: making it the
+        # minimum height stops the window shrinking into the combos, and any
+        # extra height beyond it grows the log (see the stretch on outer_layout).
         fit_height = (self.widget.sizeHint().height()
                       + self.bar.sizeHint().height() + 10)
+        self.win.setMinimumHeight(fit_height)
         # Actual startup window size (wins over setGeometry above). The first
         # number is the width to open at -- edit it to make the window wider or
         # narrower; it won't go below setMinimumSize or the content's own limits.
@@ -264,10 +283,19 @@ class Application(object):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
 
+    def log_message(self, text):
+        """Append a plain status line to the black log panel."""
+        self.log_view.appendPlainText(text)
+        self.app.processEvents()   # paint it before any blocking work follows
+
     # -- file handling --------------------------------------------------------
 
     def open_file(self, filename=None):
-        if not filename:
+        # `filename` is only passed on the reopen after Save; a bare menu click
+        # opens the picker and gets its own "Opening.../Opened" log lines.
+        interactive = filename is None
+        if interactive:
+            self.log_message("Opening file...")
             filename, _ = QFileDialog.getOpenFileName(
                 self.win, "Open file", self.dirname, FILE_FILTER)
         if not filename:
@@ -286,10 +314,14 @@ class Application(object):
         self.update_combobox_height()
         self.update_superstar_list()
         self.set_enabled(True)
+        if interactive:
+            self.log_message("Opened %s" % self.filename)
+            self.log_message("--------------------")
 
     def save_file(self):
         if self.file is None:
             return
+        self.log_message("Saving file...")
         self.progress = QProgressBar()
         self.progress.setWindowTitle("Generating...")
         self.progress.setGeometry(200, 80, 250, 20)
@@ -311,6 +343,9 @@ class Application(object):
         shutil.move("%s-NEW" % self.filename, self.filename)
         saved_as = self.filename
         self.open_file(saved_as)
+        self.log_message(
+            "Saved file at %s. Restore your backup anytime at %s.bak by "
+            "omitting .bak on the filename" % (saved_as, saved_as))
         self.message("New file generated",
                      "File saved successfully. A backup file "
                      "'%s.bak' was also created." % saved_as)
@@ -383,28 +418,77 @@ class Application(object):
 
     # -- editing --------------------------------------------------------------
 
+    def combo_text_for_value(self, combo_box, value):
+        """Label a stored combo value the way the dropdown shows it."""
+        for x in range(combo_box.count()):
+            if self.combo_box_get_int(combo_box.itemText(x)) == value:
+                return combo_box.itemText(x)
+        return "0x%.2X" % value
+
+    def combo_diff_fields(self):
+        """(label, combo, stat index) for the plain combo boxes (Show is special)."""
+        return [
+            ("Tactic", self.combobox_tactic, 9),
+            ("Gender", self.combobox_gender, 21),
+            ("Enable", self.combobox_enable, 24),
+            ("Country", self.combobox_country, 28),
+            ("Province", self.combobox_province, 29),
+            ("Weight", self.combobox_weight, 22),
+            ("Nickname Placement", self.combobox_nickname_placement, 31),
+            ("Attire 1 ID", self.combobox_attire1, 25),
+            ("Attire 2 ID", self.combobox_attire2, 26),
+            ("Height", self.combobox_height, 13),
+        ]
+
     def set_stat(self):
         index = self.current_index()
         if self.file is None or index is None:
             return
         stat = self.file.stat_list[index]
-        for stat_index, spin in self.stat_spinboxes.items():
-            stat[stat_index] = spin.value() // 5
-        stat[8] = stat[11] = self.combo_box_get_value(self.combobox_show)
-        stat[9] = self.combo_box_get_value(self.combobox_tactic)
-        stat[13] = self.combo_box_get_value(self.combobox_height)
-        stat[15] = str(self.line_edit_name.text())
-        stat[17] = str(self.line_edit_nickname.text())
-        stat[19] = str(self.line_edit_hud_name.text())
-        stat[21] = self.combo_box_get_value(self.combobox_gender)
-        stat[22] = self.combo_box_get_value(self.combobox_weight)
-        stat[24] = self.combo_box_get_value(self.combobox_enable)
-        stat[25] = self.combo_box_get_value(self.combobox_attire1)
-        stat[26] = self.combo_box_get_value(self.combobox_attire2)
-        stat[28] = self.combo_box_get_value(self.combobox_country)
-        stat[29] = self.combo_box_get_value(self.combobox_province)
-        stat[31] = self.combo_box_get_value(self.combobox_nickname_placement)
+        old = list(stat)          # snapshot before applying, for the diff log
+        diffs = []
+
+        for label, line_edit, i in (("Name", self.line_edit_name, 15),
+                                    ("Nick Name", self.line_edit_nickname, 17),
+                                    ("HUD Name", self.line_edit_hud_name, 19)):
+            new = str(line_edit.text())
+            if new != old[i]:
+                diffs.append("%s: %s -> %s" % (label, old[i], new))
+            stat[i] = new
+
+        # attributes (shown/logged x5)
+        for suffix, label, i, row, col in STAT_FIELDS:
+            new = self.stat_spinboxes[i].value() // 5
+            if new != old[i]:
+                diffs.append("%s: %d -> %d" % (label.strip(), old[i] * 5, new * 5))
+            stat[i] = new
+
+        # Show combobox is separated as it writes both stat[8] and its mirror stat[11]
+        new_show = self.combo_box_get_value(self.combobox_show)
+        if new_show != old[8]:
+            diffs.append("Show: %s -> %s" % (
+                self.combo_text_for_value(self.combobox_show, old[8]),
+                self.combobox_show.currentText()))
+        stat[8] = stat[11] = new_show
+
+        # Rest of the comboboxes
+        for label, combo, i in self.combo_diff_fields():
+            new = self.combo_box_get_value(combo)
+            if new != old[i]:
+                diffs.append("%s: %s -> %s" % (
+                    label, self.combo_text_for_value(combo, old[i]),
+                    combo.currentText()))
+            stat[i] = new
+
+        if diffs:
+            self.log_change(index, old[15], diffs)
         self.message("Stat Set", "Stat set for ID : 0x%.2X" % index)
+
+    def log_change(self, index, name, diffs):
+        """Append a diff block for one 'Set stat' to the black log panel."""
+        block = "Changed: 0x%.2X : %s\n\n%s\n--------------------" % (
+            index, name, "\n".join(diffs))
+        self.log_view.appendPlainText(block)
 
     def set_default(self):
         index = self.current_index()
