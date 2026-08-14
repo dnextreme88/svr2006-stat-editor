@@ -8,7 +8,7 @@ You must build **on Windows**: PyInstaller cannot cross-compile, so a Windows `.
 
 1. Install Python 3 from <https://www.python.org/downloads/windows/>. Tick **"Add python.exe to PATH"** during setup.
 2. You need to have the `bpe.exe` on the repository root. Without it, the editor still opens and edits files but cannot save and create a built executable.
-3. Double-click on **`build.bat`**. The finished program will be located at `/dist/Stat_Editor_GUI.exe`.
+3. Double-click on **`build.bat`**. The finished program will be located at `/dist/stat_editor_gui.exe`.
 
 ### Doing it by hand
 
@@ -17,14 +17,14 @@ py -3 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 python selftest.py
-pyinstaller Stat_Editor_GUI.spec --noconfirm --clean
+pyinstaller stat_editor.spec --noconfirm --clean
 ```
 
 ### Running from source (no build)
 
 ```bat
 pip install PyQt5
-python Stat_Editor_GUI.py
+python layout_stat_editor_gui.py
 ```
 
 ## File Structure
@@ -33,18 +33,18 @@ There are 5 `.txt` files baked into the exe and the program prefers that they do
 
 | File | Notes |
 |---|---|
-| `stat-editor.ico` | app icon |
+| `stat_editor_icon.ico` | app icon |
 | `country.txt` | `HH = Name` |
 | `province.txt` | `HH = Name` |
 | `weight.txt` | `HH = Name` |
 | `attire.txt` | `HH = Name` |
 | `height.txt` | `HHHH = Name` |
 | `bpe.exe` | **required for saving** — not redistributable inside the spec unless you copy it in |
-| `Stat_Editor_GUI.py` | PyQt5 window, all the form logic |
 | `Stat_Editor.py` | reads/writes the 159-byte stat records |
 | `apppaths.py` | finds data files whether run from source or frozen |
 | `control.py` | buffered binary file wrapper |
 | `data_op.py`, `str_op.py` | byte and string helpers |
+| `layout_stat_editor_gui.py` | PyQt5 window, all the form logic |
 | `pac.py` | Yuke's PAC/PACH archive reader and rebuilder |
 | `selftest.py` | round-trip tests — run before building |
 | `yuke_bpe.py` | BPE decompressor |

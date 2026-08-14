@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 # PyInstaller spec for the SVR 2006 Stat Editor.
-# Build with:  pyinstaller Stat_Editor_GUI.spec --noconfirm
+# Build with:  pyinstaller stat_editor.spec --noconfirm
 
 import os
 
@@ -10,7 +10,7 @@ datas = [
     ('weight.txt', '.'),
     ('attire.txt', '.'),
     ('height.txt', '.'),
-    ('stat-editor.ico', '.'),
+    ('stat_editor_icon.ico', '.'),
 ]
 
 # bpe.exe is only needed for saving; include it if it is present
@@ -18,7 +18,7 @@ if os.path.exists('bpe.exe'):
     datas.append(('bpe.exe', '.'))
 
 a = Analysis(
-    ['Stat_Editor_GUI.py'],
+    ['layout_stat_editor_gui.py'],
     pathex=[],
     binaries=[],
     datas=datas,
@@ -40,12 +40,12 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='Stat_Editor_GUI',
+    name='stat_editor_gui',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
     runtime_tmpdir=None,
     console=False,              # no console window (original was a console build)
-    icon='stat-editor.ico',
+    icon='stat_editor_icon.ico',
 )

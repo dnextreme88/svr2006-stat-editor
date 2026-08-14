@@ -64,7 +64,7 @@ class Application(object):
         self.file = None
         self.backup_stat = []
 
-        icon_path = apppaths.resource("stat-editor.ico")
+        icon_path = apppaths.resource("stat_editor_icon.ico")
         if os.path.exists(icon_path):
             self.app.setWindowIcon(QIcon(icon_path))
             self.win.setWindowIcon(QIcon(icon_path))
