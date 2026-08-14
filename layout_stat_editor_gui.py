@@ -32,6 +32,24 @@ STAT_FIELDS = [
     ("stamina", "STA ", 6, 3, 2),
 ]
 
+# Field labels defined once, so a field's form label and its change-log label
+# always match. Rename a field here to rename it everywhere. (Attribute labels
+# live in STAT_FIELDS above, which is already the single source for those.)
+LABEL_NAME = "Name"
+LABEL_NICKNAME = "Nick Name"
+LABEL_HUD_NAME = "HUD Name"
+LABEL_ENABLE = "Enable"
+LABEL_SHOW = "Show"
+LABEL_TACTIC = "Tactic"
+LABEL_GENDER = "Gender"
+LABEL_NICKNAME_PLACEMENT = "Nickname Placement"
+LABEL_COUNTRY = "Country"
+LABEL_PROVINCE = "Province"
+LABEL_WEIGHT = "Weight"
+LABEL_HEIGHT = "Height"
+LABEL_ATTIRE1 = "Attire 1 ID"
+LABEL_ATTIRE2 = "Attire 2 ID"
+
 
 def load_id_list(filename, id_width):
     """Parse 'HH = Name' / 'HHHH = Name' lookup tables shipped beside the exe."""
@@ -135,43 +153,43 @@ class Application(object):
             self.stat_spinboxes[index] = spin
 
         # --- names ------------------------------------------------------------
-        self.name_grid.addWidget(QLabel("Name"), 0, 0)
+        self.name_grid.addWidget(QLabel(LABEL_NAME), 0, 0)
         self.line_edit_name = QLineEdit()
         self.line_edit_name.setMaxLength(22)
         self.name_grid.addWidget(self.line_edit_name, 0, 1, 1, 2)
-        self.name_grid.addWidget(QLabel("Nick Name"), 1, 0)
+        self.name_grid.addWidget(QLabel(LABEL_NICKNAME), 1, 0)
         self.line_edit_nickname = QLineEdit()
         self.line_edit_nickname.setMaxLength(20)
         self.name_grid.addWidget(self.line_edit_nickname, 1, 1, 1, 2)
-        self.name_grid.addWidget(QLabel("HUD Name"), 2, 0)
+        self.name_grid.addWidget(QLabel(LABEL_HUD_NAME), 2, 0)
         self.line_edit_hud_name = QLineEdit()
         self.line_edit_hud_name.setMaxLength(10)
         self.name_grid.addWidget(self.line_edit_hud_name, 2, 1, 1, 2)
 
         # --- settings (single column) -----------------------------------------
-        self.combobox_show = self._combo(
-            "Show", ["0x00 : RAW", "0x01 : Smackdown",
-                     "0x02 : Legend", "0x03 : No Show"])
-        self.combobox_tactic = self._combo(
-            "Tactic", ["0x00 : Clean", "0x01 : Dirty"])
-        self.combobox_gender = self._combo(
-            "Gender", ["0x00 : Male", "0x01 : Female"])
         self.combobox_enable = self._combo(
-            "Enable", ["0x00 : Disable", "0x03 : Enable"])
-        self.combobox_country = self._combo(
-            "Country", load_id_list("country.txt", 2))
-        self.combobox_province = self._combo(
-            "Province", load_id_list("province.txt", 2))
-        self.combobox_weight = self._combo(
-            "Weight", load_id_list("weight.txt", 2))
+            LABEL_ENABLE, ["0x00 : Disable", "0x03 : Enable"])
+        self.combobox_show = self._combo(
+            LABEL_SHOW, ["0x00 : RAW", "0x01 : Smackdown",
+                         "0x02 : Legend", "0x03 : No Show"])
+        self.combobox_tactic = self._combo(
+            LABEL_TACTIC, ["0x00 : Clean", "0x01 : Dirty"])
+        self.combobox_gender = self._combo(
+            LABEL_GENDER, ["0x00 : Male", "0x01 : Female"])
         self.combobox_nickname_placement = self._combo(
-            "Nickname Placement",
+            LABEL_NICKNAME_PLACEMENT,
             ["0x00 : None", "0x01 : Prefix", "0x02 : Suffix"])
-        attire = load_id_list("attire.txt", 2)
-        self.combobox_attire1 = self._combo("Attire 1 ID", attire)
-        self.combobox_attire2 = self._combo("Attire 2 ID", attire)
+        self.combobox_country = self._combo(
+            LABEL_COUNTRY, load_id_list("country.txt", 2))
+        self.combobox_province = self._combo(
+            LABEL_PROVINCE, load_id_list("province.txt", 2))
+        self.combobox_weight = self._combo(
+            LABEL_WEIGHT, load_id_list("weight.txt", 2))
         self.combobox_height = self._combo(
-            "Height", load_id_list("height.txt", 4))
+            LABEL_HEIGHT, load_id_list("height.txt", 4))
+        attire = load_id_list("attire.txt", 2)
+        self.combobox_attire1 = self._combo(LABEL_ATTIRE1, attire)
+        self.combobox_attire2 = self._combo(LABEL_ATTIRE2, attire)
 
         # Let the input columns absorb spare width so labels stay compact-left.
         self.name_grid.setColumnStretch(1, 1)
@@ -240,11 +258,12 @@ class Application(object):
     # -- helpers --------------------------------------------------------------
 
     def all_comboboxes(self):
-        return [self.combobox_show, self.combobox_tactic, self.combobox_gender,
-                self.combobox_enable, self.combobox_country,
+        return [self.combobox_enable, self.combobox_show,
+                self.combobox_tactic, self.combobox_gender,
+                self.combobox_nickname_placement, self.combobox_country,
                 self.combobox_province, self.combobox_weight,
-                self.combobox_nickname_placement, self.combobox_attire1,
-                self.combobox_attire2, self.combobox_height]
+                self.combobox_height, self.combobox_attire1,
+                self.combobox_attire2]
 
     def set_enabled(self, enabled):
         """Grey out the editor until a file is loaded."""
@@ -388,20 +407,20 @@ class Application(object):
         stat = stat_list[index]
         for stat_index, spin in self.stat_spinboxes.items():
             spin.setValue(stat[stat_index] * 5)
-        self.combo_box_set_value(self.combobox_show, stat[8])
-        self.combo_box_set_value(self.combobox_tactic, stat[9])
-        self.combo_box_set_value(self.combobox_height, stat[13])
         self.line_edit_name.setText(stat[15])
         self.line_edit_nickname.setText(stat[17])
         self.line_edit_hud_name.setText(stat[19])
-        self.combo_box_set_value(self.combobox_gender, stat[21])
-        self.combo_box_set_value(self.combobox_weight, stat[22])
         self.combo_box_set_value(self.combobox_enable, stat[24])
-        self.combo_box_set_value(self.combobox_attire1, stat[25])
-        self.combo_box_set_value(self.combobox_attire2, stat[26])
+        self.combo_box_set_value(self.combobox_show, stat[8])
+        self.combo_box_set_value(self.combobox_tactic, stat[9])
+        self.combo_box_set_value(self.combobox_gender, stat[21])
+        self.combo_box_set_value(self.combobox_nickname_placement, stat[31])
         self.combo_box_set_value(self.combobox_country, stat[28])
         self.combo_box_set_value(self.combobox_province, stat[29])
-        self.combo_box_set_value(self.combobox_nickname_placement, stat[31])
+        self.combo_box_set_value(self.combobox_weight, stat[22])
+        self.combo_box_set_value(self.combobox_height, stat[13])
+        self.combo_box_set_value(self.combobox_attire1, stat[25])
+        self.combo_box_set_value(self.combobox_attire2, stat[26])
 
     def current_index(self):
         """Roster index (parsed hex) of the selected list row, or None."""
@@ -428,16 +447,16 @@ class Application(object):
     def combo_diff_fields(self):
         """(label, combo, stat index) for the plain combo boxes (Show is special)."""
         return [
-            ("Tactic", self.combobox_tactic, 9),
-            ("Gender", self.combobox_gender, 21),
-            ("Enable", self.combobox_enable, 24),
-            ("Country", self.combobox_country, 28),
-            ("Province", self.combobox_province, 29),
-            ("Weight", self.combobox_weight, 22),
-            ("Nickname Placement", self.combobox_nickname_placement, 31),
-            ("Attire 1 ID", self.combobox_attire1, 25),
-            ("Attire 2 ID", self.combobox_attire2, 26),
-            ("Height", self.combobox_height, 13),
+            (LABEL_ENABLE, self.combobox_enable, 24),
+            (LABEL_TACTIC, self.combobox_tactic, 9),
+            (LABEL_GENDER, self.combobox_gender, 21),
+            (LABEL_NICKNAME_PLACEMENT, self.combobox_nickname_placement, 31),
+            (LABEL_COUNTRY, self.combobox_country, 28),
+            (LABEL_PROVINCE, self.combobox_province, 29),
+            (LABEL_WEIGHT, self.combobox_weight, 22),
+            (LABEL_HEIGHT, self.combobox_height, 13),
+            (LABEL_ATTIRE1, self.combobox_attire1, 25),
+            (LABEL_ATTIRE2, self.combobox_attire2, 26),
         ]
 
     def set_stat(self):
@@ -448,9 +467,9 @@ class Application(object):
         old = list(stat)          # snapshot before applying, for the diff log
         diffs = []
 
-        for label, line_edit, i in (("Name", self.line_edit_name, 15),
-                                    ("Nick Name", self.line_edit_nickname, 17),
-                                    ("HUD Name", self.line_edit_hud_name, 19)):
+        for label, line_edit, i in ((LABEL_NAME, self.line_edit_name, 15),
+                                    (LABEL_NICKNAME, self.line_edit_nickname, 17),
+                                    (LABEL_HUD_NAME, self.line_edit_hud_name, 19)):
             new = str(line_edit.text())
             if new != old[i]:
                 diffs.append("%s: %s -> %s" % (label, old[i], new))
@@ -466,7 +485,8 @@ class Application(object):
         # Show combobox is separated as it writes both stat[8] and its mirror stat[11]
         new_show = self.combo_box_get_value(self.combobox_show)
         if new_show != old[8]:
-            diffs.append("Show: %s -> %s" % (
+            diffs.append("%s: %s -> %s" % (
+                LABEL_SHOW,
                 self.combo_text_for_value(self.combobox_show, old[8]),
                 self.combobox_show.currentText()))
         stat[8] = stat[11] = new_show
