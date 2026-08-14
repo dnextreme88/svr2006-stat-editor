@@ -1,0 +1,16 @@
+FF = No Second Attire
+00 = School Girl
+01 = Nurse
+02 = French Maid
+03 = Ring Gear
+04 = T-Shirt & Short Jeans
+05 = Ring Gear
+06 = Suit
+07 = Ring Gear
+08 = Suit
+09 = Short Jeans
+0A = Sports Jersey
+0B = Shorts
+0C = Aloha
+0D = No Mask
+0E = Masked

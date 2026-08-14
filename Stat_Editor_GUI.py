@@ -1,0 +1,364 @@
+"""WWE SmackDown vs RAW 2006 Stat Editor -- original by eatrawmeat391.
+
+Python 3 / PyQt5 port of the py2exe-frozen PyQt4 original.
+"""
+import os
+import shutil
+import sys
+
+from PyQt5.QtCore import QRect
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import (
+    QAction, QApplication, QComboBox, QFileDialog, QGridLayout, QLabel,
+    QLineEdit, QMainWindow, QMessageBox, QProgressBar, QPushButton, QSpinBox,
+    QWidget,
+)
+
+from Stat_Editor import Stat_Editor
+import apppaths
+
+WINDOW_TITLE = "WWE Smackdown VS RAW 2006 Stat Editor"
+FILE_FILTER = "SVR 2006 Stat File (DAT_.PAC FDAT.PAC)"
+
+STAT_FIELDS = [
+    # (attribute suffix, label, stat_list index, grid row, grid col)
+    ("strength", "STR ", 0, 0, 0),
+    ("speed", "SPD ", 2, 0, 2),
+    ("submission", "SUB ", 1, 1, 0),
+    ("technical", "TEC ", 3, 1, 2),
+    ("durability", "DUR ", 4, 2, 0),
+    ("charisma", "CHA ", 5, 2, 2),
+    ("stamina", "STA ", 6, 3, 0),
+    ("hardcore", "HRD ", 7, 3, 2),
+]
+
+
+def load_id_list(filename, id_width):
+    """Parse 'HH = Name' / 'HHHH = Name' lookup tables shipped beside the exe."""
+    path = apppaths.resource(filename)
+    items = []
+    if not os.path.exists(path):
+        return items
+    with open(path, "r", encoding="latin-1") as text_file:
+        for line in text_file:
+            line = line.rstrip("\r\n")
+            if not line.strip():
+                continue
+            try:
+                ident = int(line[0:id_width], 16)
+            except ValueError:
+                continue
+            name = line[id_width + 3:]
+            fmt = "0x%.2X : %s" if id_width == 2 else "0x%.4X : %s"
+            items.append(fmt % (ident, name))
+    return items
+
+
+class Application(object):
+
+    def __init__(self):
+        self.app = QApplication(sys.argv)
+        self.win = QMainWindow()
+        self.filename = ""
+        self.dirname = ""
+        self.file = None
+        self.backup_stat = []
+
+        icon_path = apppaths.resource("stat-editor.ico")
+        if os.path.exists(icon_path):
+            self.app.setWindowIcon(QIcon(icon_path))
+            self.win.setWindowIcon(QIcon(icon_path))
+
+        self.win.setGeometry(QRect(20, 40, 500, 500))
+        self.win.setWindowTitle(WINDOW_TITLE)
+
+        self.bar = self.win.menuBar()
+        self.file_menu = self.bar.addMenu("File")
+        self.open_action = QAction("Open", self.win)
+        self.open_action.setShortcut("CTRL+O")
+        self.save_action = QAction("Save", self.win)
+        self.save_action.setShortcut("CTRL+S")
+        self.exit_action = QAction("Exit", self.win)
+        self.file_menu.addAction(self.open_action)
+        self.file_menu.addAction(self.save_action)
+        self.file_menu.addAction(self.exit_action)
+        self.open_action.triggered.connect(lambda checked=False: self.open_file())
+        self.save_action.triggered.connect(lambda checked=False: self.save_file())
+        self.exit_action.triggered.connect(self.win.close)
+
+        self.widget = QWidget()
+        self.grid = QGridLayout()
+        self.main_grid = QGridLayout()
+        self.stat_grid = QGridLayout()
+        self.name_grid = QGridLayout()
+        self.setting_grid = QGridLayout()
+
+        # --- superstar picker -------------------------------------------------
+        self.label_superstar = QLabel("ID: ")
+        self.main_grid.addWidget(self.label_superstar, 0, 0)
+        self.combobox_superstar = QComboBox()
+        self.combobox_superstar.currentIndexChanged.connect(
+            self.superstar_selectionchange)
+        self.main_grid.addWidget(self.combobox_superstar, 0, 1, 1, 2)
+        self.button_set = QPushButton("Set stat")
+        self.button_set.clicked.connect(self.set_stat)
+        self.main_grid.addWidget(self.button_set, 0, 3)
+        self.button_default = QPushButton("Default")
+        self.button_default.clicked.connect(self.set_default)
+        self.main_grid.addWidget(self.button_default, 0, 4)
+
+        # --- attributes -------------------------------------------------------
+        self.stat_spinboxes = {}
+        for suffix, label, index, row, col in STAT_FIELDS:
+            self.stat_grid.addWidget(QLabel(label), row, col)
+            spin = QSpinBox()
+            spin.setRange(0, 100)
+            spin.setSingleStep(5)
+            self.stat_grid.addWidget(spin, row, col + 1)
+            setattr(self, "spinbox_%s" % suffix, spin)
+            self.stat_spinboxes[index] = spin
+
+        # --- names ------------------------------------------------------------
+        self.name_grid.addWidget(QLabel("Name"), 0, 0)
+        self.line_edit_name = QLineEdit()
+        self.line_edit_name.setMaxLength(22)
+        self.name_grid.addWidget(self.line_edit_name, 0, 1, 1, 2)
+        self.name_grid.addWidget(QLabel("Nick Name"), 1, 0)
+        self.line_edit_nickname = QLineEdit()
+        self.line_edit_nickname.setMaxLength(20)
+        self.name_grid.addWidget(self.line_edit_nickname, 1, 1, 1, 2)
+        self.name_grid.addWidget(QLabel("HUD Name"), 2, 0)
+        self.line_edit_hud_name = QLineEdit()
+        self.line_edit_hud_name.setMaxLength(10)
+        self.name_grid.addWidget(self.line_edit_hud_name, 2, 1, 1, 2)
+
+        # --- settings ---------------------------------------------------------
+        self.combobox_show = self._combo(
+            "Show", 0, 0, ["0x00 : RAW", "0x01 : Smackdown",
+                           "0x02 : Legend", "0x03 : No Show"])
+        self.combobox_tactic = self._combo(
+            "Tactic", 0, 2, ["0x00 : Clean", "0x01 : Dirty"])
+        self.combobox_gender = self._combo(
+            "Gender", 1, 0, ["0x00 : Male", "0x01 : Female"])
+        self.combobox_enable = self._combo(
+            "Enable", 1, 2, ["0x00 : Disable", "0x03 : Enable"])
+        self.combobox_country = self._combo(
+            "Country", 2, 0, load_id_list("country.txt", 2))
+        self.combobox_province = self._combo(
+            "Province", 2, 2, load_id_list("province.txt", 2))
+        self.combobox_weight = self._combo(
+            "Weight", 3, 0, load_id_list("weight.txt", 2))
+        self.combobox_nickname_placement = self._combo(
+            "Nickname Placement", 3, 2,
+            ["0x00 : None", "0x01 : Prefix", "0x02 : Suffix"])
+        attire = load_id_list("attire.txt", 2)
+        self.combobox_attire1 = self._combo("Attire 1 ID", 4, 0, attire)
+        self.combobox_attire2 = self._combo("Attire 2 ID", 4, 2, attire)
+        self.combobox_height = self._combo(
+            "Height", 5, 0, load_id_list("height.txt", 4))
+
+        self.grid.addLayout(self.main_grid, 0, 0)
+        self.grid.addLayout(self.name_grid, 1, 0)
+        self.grid.addLayout(self.stat_grid, 2, 0)
+        self.grid.addLayout(self.setting_grid, 3, 0)
+        self.widget.setLayout(self.grid)
+        self.win.setCentralWidget(self.widget)
+        self.set_enabled(False)
+        self.win.show()
+
+    def _combo(self, label, row, col, items):
+        self.setting_grid.addWidget(QLabel(label), row, col)
+        combo = QComboBox()
+        for item in items:
+            combo.addItem(item)
+        self.setting_grid.addWidget(combo, row, col + 1)
+        return combo
+
+    def run(self):
+        return self.app.exec_()
+
+    # -- helpers --------------------------------------------------------------
+
+    def all_comboboxes(self):
+        return [self.combobox_show, self.combobox_tactic, self.combobox_gender,
+                self.combobox_enable, self.combobox_country,
+                self.combobox_province, self.combobox_weight,
+                self.combobox_nickname_placement, self.combobox_attire1,
+                self.combobox_attire2, self.combobox_height]
+
+    def set_enabled(self, enabled):
+        """Grey out the editor until a file is loaded."""
+        for widget in (list(self.stat_spinboxes.values())
+                       + self.all_comboboxes()
+                       + [self.line_edit_name, self.line_edit_nickname,
+                          self.line_edit_hud_name, self.button_set,
+                          self.button_default, self.combobox_superstar]):
+            widget.setEnabled(enabled)
+
+    @staticmethod
+    def combo_box_get_int(text):
+        return int(str(text).split(" : ")[0], 16)
+
+    def combo_box_get_value(self, combo_box):
+        return self.combo_box_get_int(combo_box.currentText())
+
+    def is_value_in_combo_box(self, combo_box, value):
+        for x in range(combo_box.count()):
+            if self.combo_box_get_int(combo_box.itemText(x)) == value:
+                return True
+        return False
+
+    def combo_box_set_value(self, combo_box, value):
+        for x in range(combo_box.count()):
+            if self.combo_box_get_int(combo_box.itemText(x)) == value:
+                combo_box.setCurrentIndex(x)
+                return
+
+    def message(self, title, text):
+        msg = QMessageBox(self.win)
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle(title)
+        msg.setText(text)
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
+    # -- file handling --------------------------------------------------------
+
+    def open_file(self, filename=None):
+        if not filename:
+            filename, _ = QFileDialog.getOpenFileName(
+                self.win, "Open file", self.dirname, FILE_FILTER)
+        if not filename:
+            return
+        self.filename = str(filename)
+        self.dirname = os.path.dirname(self.filename)
+        try:
+            self.file = Stat_Editor(self.filename)
+        except Exception as exc:
+            self.file = None
+            self.set_enabled(False)
+            QMessageBox.critical(self.win, "Could not open file",
+                                 "%s\n\n%s" % (self.filename, exc))
+            return
+        self.backup_stat = [list(stat) for stat in self.file.stat_list]
+        self.update_combobox_height()
+        self.update_combobox_superstar()
+        self.set_enabled(True)
+
+    def save_file(self):
+        if self.file is None:
+            return
+        self.progress = QProgressBar()
+        self.progress.setWindowTitle("Generating...")
+        self.progress.setGeometry(200, 80, 250, 20)
+        self.progress.show()
+        try:
+            for percent in self.file.set_stat_data():
+                self.progress.setValue(int(percent))
+                self.app.processEvents()
+        except Exception as exc:
+            self.progress.deleteLater()
+            QMessageBox.critical(self.win, "Save failed", str(exc))
+            return
+        self.progress.deleteLater()
+        self.progress = None
+
+        self.file.close()
+        self.file = None
+        shutil.move(self.filename, "%s.bak" % self.filename)
+        shutil.move("%s-NEW" % self.filename, self.filename)
+        saved_as = self.filename
+        self.open_file(saved_as)
+        self.message("New file generated",
+                     "File saved successfully. A backup file "
+                     "'%s.bak' was also created." % saved_as)
+
+    # -- view refresh ---------------------------------------------------------
+
+    def update_combobox_superstar(self):
+        self.combobox_superstar.blockSignals(True)
+        self.combobox_superstar.clear()
+        for x in range(len(self.file.stat_list)):
+            self.combobox_superstar.addItem(
+                "0x%.2X : %s" % (x, self.file.stat_list[x][15]))
+        self.combobox_superstar.blockSignals(False)
+        self.combobox_superstar.setCurrentIndex(0)
+        self.superstar_selectionchange()
+
+    def update_combobox_height(self):
+        self.combobox_height.clear()
+        for item in load_id_list("height.txt", 4):
+            self.combobox_height.addItem(item)
+        for x in range(len(self.file.stat_list)):
+            height = self.file.stat_list[x][13]
+            if not self.is_value_in_combo_box(self.combobox_height, height):
+                label = self.file.stat_list[x][19] or ("ID: 0x%.2X" % x)
+                self.combobox_height.addItem("0x%.4X : %s" % (height, label))
+
+    def GUI_set_stat(self, stat_list, index):
+        stat = stat_list[index]
+        for stat_index, spin in self.stat_spinboxes.items():
+            spin.setValue(stat[stat_index] * 5)
+        self.combo_box_set_value(self.combobox_show, stat[8])
+        self.combo_box_set_value(self.combobox_tactic, stat[9])
+        self.combo_box_set_value(self.combobox_height, stat[13])
+        self.line_edit_name.setText(stat[15])
+        self.line_edit_nickname.setText(stat[17])
+        self.line_edit_hud_name.setText(stat[19])
+        self.combo_box_set_value(self.combobox_gender, stat[21])
+        self.combo_box_set_value(self.combobox_weight, stat[22])
+        self.combo_box_set_value(self.combobox_enable, stat[24])
+        self.combo_box_set_value(self.combobox_attire1, stat[25])
+        self.combo_box_set_value(self.combobox_attire2, stat[26])
+        self.combo_box_set_value(self.combobox_country, stat[28])
+        self.combo_box_set_value(self.combobox_province, stat[29])
+        self.combo_box_set_value(self.combobox_nickname_placement, stat[31])
+
+    def superstar_selectionchange(self):
+        if self.file is None or self.combobox_superstar.currentIndex() < 0:
+            return
+        index = self.combo_box_get_int(self.combobox_superstar.currentText())
+        self.GUI_set_stat(self.file.stat_list, index)
+
+    # -- editing --------------------------------------------------------------
+
+    def set_stat(self):
+        if self.file is None:
+            return
+        index = self.combo_box_get_int(self.combobox_superstar.currentText())
+        stat = self.file.stat_list[index]
+        for stat_index, spin in self.stat_spinboxes.items():
+            stat[stat_index] = spin.value() // 5
+        stat[8] = stat[11] = self.combo_box_get_value(self.combobox_show)
+        stat[9] = self.combo_box_get_value(self.combobox_tactic)
+        stat[13] = self.combo_box_get_value(self.combobox_height)
+        stat[15] = str(self.line_edit_name.text())
+        stat[17] = str(self.line_edit_nickname.text())
+        stat[19] = str(self.line_edit_hud_name.text())
+        stat[21] = self.combo_box_get_value(self.combobox_gender)
+        stat[22] = self.combo_box_get_value(self.combobox_weight)
+        stat[24] = self.combo_box_get_value(self.combobox_enable)
+        stat[25] = self.combo_box_get_value(self.combobox_attire1)
+        stat[26] = self.combo_box_get_value(self.combobox_attire2)
+        stat[28] = self.combo_box_get_value(self.combobox_country)
+        stat[29] = self.combo_box_get_value(self.combobox_province)
+        stat[31] = self.combo_box_get_value(self.combobox_nickname_placement)
+        self.message("Stat Set", "Stat set for ID : 0x%.2X" % index)
+
+    def set_default(self):
+        if self.file is None:
+            return
+        index = self.combo_box_get_int(self.combobox_superstar.currentText())
+        self.GUI_set_stat(self.backup_stat, index)
+        self.message("Back to default",
+                     "Stat set to default for ID : 0x%.2X. "
+                     "Click 'Set Stat' to confirm." % index)
+
+
+def main():
+    app = Application()
+    return app.run()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,10 @@
+80 = Supermodel -96
+FF = Supermodel
+00 = Diva
+01 = Cruiserweight
+02 = Light Heavyweight
+03 = Heavyweight
+04 = Super Heavyweight
+05 = Ultra Heavyweight
+06 = Omegaweight
+7F = Omegaweight +122
