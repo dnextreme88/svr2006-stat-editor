@@ -102,9 +102,9 @@ tuple `index` must equal its list position and the table must stay offset-sorted
 inserting a field renumbers every later `index` (and the GUI references to them).
 
 **Selection Order** (`stat[31]`, offset `0x9C`) is a **cardinal ordering slot**, not a
-superstar reference: the byte `0x00`–`0x5B` is a precedence position, so its combo is a
+superstar reference: the byte `0x00`–`0xA6` is a precedence position, so its combo is a
 fixed, file-independent list of ordinals built in `__init__` — `"0x00 : 1st"`,
-`"0x01 : 2nd"`, … `"0x5B : 92nd"` (via the `ordinal()` helper), the same static-combo
+`"0x01 : 2nd"`, … `"0xA6 : 167th"` (via the `ordinal()` helper), the same static-combo
 pattern as Enable/Show/Tactic.
 
 ## File guide

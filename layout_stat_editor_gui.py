@@ -217,11 +217,11 @@ class Application(object):
         attire = load_id_list("attire.txt", 2)
         self.combobox_attire1 = self._combo(LABEL_ATTIRE1, attire)
         self.combobox_attire2 = self._combo(LABEL_ATTIRE2, attire)
-        # Cardinal selection order: the byte is a fixed ordering slot (0x00-0x5B),
-        # NOT a superstar reference, so the items are the ordinals 1st..92nd.
+        # Cardinal selection order: the byte is a fixed ordering slot (0x00-0xA6),
+        # NOT a superstar reference, so the items are the ordinals 1st..167th.
         self.combobox_selection_order = self._combo(
             LABEL_SELECTION_ORDER,
-            ["0x%.2X : %s" % (v, ordinal(v + 1)) for v in range(0x5C)])
+            ["0x%.2X : %s" % (v, ordinal(v + 1)) for v in range(0xA7)])
 
         # Let the input columns absorb spare width so labels stay compact-left.
         self.name_grid.setColumnStretch(1, 1)
