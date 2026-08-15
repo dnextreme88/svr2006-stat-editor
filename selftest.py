@@ -27,6 +27,7 @@ def make_stat_record(name, nick, hud, seed):
     rec[146] = 2
     rec[153] = 5
     rec[154] = 7
+    rec[156] = 0x2A          # selection order (roster reference, 0x00-0x5B)
     rec[157] = 1
     # sentinel bytes in the "raw" regions -- must survive a round trip
     rec[40:64] = bytes(range(24))
@@ -77,7 +78,7 @@ def main():
         assert s[0] == 3 and s[1] == 4, (s[0], s[1])
         assert s[13] == 0x0C63 + 3, hex(s[13])
         assert s[22] == 3 and s[24] == 3 and s[25] == 1 and s[26] == 2
-        assert s[28] == 5 and s[29] == 7 and s[31] == 1
+        assert s[28] == 5 and s[29] == 7 and s[31] == 0x2A and s[32] == 1
         print("parse            OK  (%d records, names/ints decoded)" % len(editor.stat_list))
 
         # every byte must round-trip when nothing is edited

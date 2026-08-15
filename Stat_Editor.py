@@ -34,9 +34,10 @@ editor preserves untouched so nothing outside the known fields is corrupted.
    27  147    6   raw
    28  153    1   Country
    29  154    1   Province
-   30  155    2   raw
-   31  157    1   Nickname placement
-   32  158    1   raw
+   30  155    1   raw
+   31  156    1   Selection Order
+   32  157    1   Nickname Placement
+   33  158    1   raw
 """
 import ctypes
 import os
@@ -49,30 +50,44 @@ from yuke_bpe import extract_bpe
 from data_op import read_int, read_string, fill_string, string_shortener, int_to_string
 import apppaths
 
-# (index, offset, size, kind) -- kind: "int", "str" (NUL-padded), "raw"
+# (index, offset, size, kind) -- kind: "int" (number), "str" (text, NUL-padded),
+# "raw" (unknown bytes preserved byte-for-byte). The comment on each row names the
+# GUI field it feeds (or "unknown" for raw) plus its hex offset in the record.
 FIELDS = [
-    (0, 0, 1, "int"), (1, 1, 1, "int"), (2, 2, 1, "int"), (3, 3, 1, "int"),
-    (4, 4, 1, "int"), (5, 5, 1, "int"), (6, 6, 1, "int"), (7, 7, 1, "int"),
-    (8, 8, 1, "int"), (9, 9, 1, "int"),
-    (10, 10, 2, "raw"),
-    (11, 12, 1, "int"),
-    (12, 13, 1, "raw"),
-    (13, 14, 2, "int"),
-    (14, 16, 2, "raw"),
-    (15, 18, 22, "str"),
-    (16, 40, 24, "raw"),
-    (17, 64, 20, "str"),
-    (18, 84, 26, "raw"),
-    (19, 110, 10, "str"),
-    (20, 120, 16, "raw"),
-    (21, 136, 1, "int"), (22, 137, 1, "int"),
-    (23, 138, 6, "raw"),
-    (24, 144, 1, "int"), (25, 145, 1, "int"), (26, 146, 1, "int"),
-    (27, 147, 6, "raw"),
-    (28, 153, 1, "int"), (29, 154, 1, "int"),
-    (30, 155, 2, "raw"),
-    (31, 157, 1, "int"),
-    (32, 158, 1, "raw"),
+    (0,   0,   1, "int"),   # STR / strength      (0x00)
+    (1,   1,   1, "int"),   # SUB / submission    (0x01)
+    (2,   2,   1, "int"),   # SPD / speed         (0x02)
+    (3,   3,   1, "int"),   # TEC / technical     (0x03)
+    (4,   4,   1, "int"),   # DUR / durability    (0x04)
+    (5,   5,   1, "int"),   # CHA / charisma      (0x05)
+    (6,   6,   1, "int"),   # STA / stamina       (0x06)
+    (7,   7,   1, "int"),   # HRD / hardcore      (0x07)
+    (8,   8,   1, "int"),   # Show                (0x08)
+    (9,   9,   1, "int"),   # Tactic              (0x09)
+    (10,  10,  2, "raw"),   # raw / unknown       (0x0A-0x0B)
+    (11,  12,  1, "int"),   # Show (mirror of 8)  (0x0C)
+    (12,  13,  1, "raw"),   # raw / unknown       (0x0D)
+    (13,  14,  2, "int"),   # Height              (0x0E-0x0F)
+    (14,  16,  2, "raw"),   # raw / unknown       (0x10-0x11)
+    (15,  18,  22, "str"),  # Name                (0x12-0x27)
+    (16,  40,  24, "raw"),  # raw / unknown       (0x28-0x3F)
+    (17,  64,  20, "str"),  # Nickname            (0x40-0x53)
+    (18,  84,  26, "raw"),  # raw / unknown       (0x54-0x6D)
+    (19,  110, 10, "str"),  # HUD Name            (0x6E-0x77)
+    (20,  120, 16, "raw"),  # raw / unknown       (0x78-0x87)
+    (21,  136, 1, "int"),   # Gender              (0x88)
+    (22,  137, 1, "int"),   # Weight              (0x89)
+    (23,  138, 6, "raw"),   # raw / unknown       (0x8A-0x8F)
+    (24,  144, 1, "int"),   # Enable              (0x90)
+    (25,  145, 1, "int"),   # Attire 1 ID         (0x91)
+    (26,  146, 1, "int"),   # Attire 2 ID         (0x92)
+    (27,  147, 6, "raw"),   # raw / unknown       (0x93-0x98)
+    (28,  153, 1, "int"),   # Country             (0x99)
+    (29,  154, 1, "int"),   # Province            (0x9A)
+    (30,  155, 1, "raw"),   # raw / unknown       (0x9B)
+    (31,  156, 1, "int"),   # Selection Order     (0x9C)
+    (32,  157, 1, "int"),   # Nickname Placement  (0x9D)
+    (33,  158, 1, "raw"),   # raw / unknown       (0x9E)
 ]
 
 RECORD_SIZE = 159

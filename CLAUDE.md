@@ -60,7 +60,7 @@ values back into the record's list; "Default" restores from `backup_stat`.
 **Change log.** `set_stat` snapshots the record before applying, diffs each field
 (attributes shown ×5, combos labelled via `combo_text_for_value`), and appends a block
 to the black `log_view` (`QPlainTextEdit`) via `log_change` — `"Changed: 0xNN : Name"`,
-a blank line, one `Field: old -> new` per change, then `---`. Only changed fields are
+a blank line, one `Field: old ---> new` per change, then `---`. Only changed fields are
 logged; an unchanged "Set stat" adds nothing. `log_message` appends plain status lines
 to the same panel — Open logs `Opening file...` / `Opened <path>` (only on an
 interactive open, not the reopen after Save), and Save logs `Saving file...` /
@@ -81,7 +81,17 @@ original is renamed `<file>.bak` and `-NEW` is moved into place.
 **Record layout.** Each record is `RECORD_SIZE = 159` bytes, described by the `FIELDS`
 table in `Stat_Editor.py` as `(index, offset, size, kind)` where `kind` is `int`, `str`
 (NUL-padded), or `raw`. **`raw` fields are unknown blobs preserved byte-for-byte** so
-nothing outside the known fields is corrupted — `selftest.py` verifies this.
+nothing outside the known fields is corrupted — `selftest.py` verifies this. Each `FIELDS`
+row carries an inline comment naming the GUI field it feeds and its hex offset; because
+`stat_from_data` appends in table order and `data_from_stat` writes in table order, the
+tuple `index` must equal its list position and the table must stay offset-sorted, so
+inserting a field renumbers every later `index` (and the GUI references to them).
+
+**Selection Order** (`stat[31]`, offset `0x9C`) is a **cardinal ordering slot**, not a
+superstar reference: the byte `0x00`–`0x5B` is a precedence position, so its combo is a
+fixed, file-independent list of ordinals built in `__init__` — `"0x00 : 1st"`,
+`"0x01 : 2nd"`, … `"0x5B : 92nd"` (via the `ordinal()` helper), the same static-combo
+pattern as Enable/Show/Tactic.
 
 ## File guide
 

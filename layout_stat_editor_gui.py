@@ -36,7 +36,7 @@ STAT_FIELDS = [
 # always match. Rename a field here to rename it everywhere. (Attribute labels
 # live in STAT_FIELDS above, which is already the single source for those.)
 LABEL_NAME = "Name"
-LABEL_NICKNAME = "Nick Name"
+LABEL_NICKNAME = "Nickname"
 LABEL_HUD_NAME = "HUD Name"
 LABEL_ENABLE = "Enable"
 LABEL_SHOW = "Show"
@@ -49,6 +49,16 @@ LABEL_WEIGHT = "Weight"
 LABEL_HEIGHT = "Height"
 LABEL_ATTIRE1 = "Attire 1 ID"
 LABEL_ATTIRE2 = "Attire 2 ID"
+LABEL_SELECTION_ORDER = "Selection Order"
+
+
+def ordinal(n):
+    """Cardinal-to-ordinal string: 1 ---> '1st', 2 ---> '2nd', 3 ---> '3rd', 11 ---> '11th'."""
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return "%d%s" % (n, suffix)
 
 
 def load_id_list(filename, id_width):
@@ -190,6 +200,11 @@ class Application(object):
         attire = load_id_list("attire.txt", 2)
         self.combobox_attire1 = self._combo(LABEL_ATTIRE1, attire)
         self.combobox_attire2 = self._combo(LABEL_ATTIRE2, attire)
+        # Cardinal selection order: the byte is a fixed ordering slot (0x00-0x5B),
+        # NOT a superstar reference, so the items are the ordinals 1st..92nd.
+        self.combobox_selection_order = self._combo(
+            LABEL_SELECTION_ORDER,
+            ["0x%.2X : %s" % (v, ordinal(v + 1)) for v in range(0x5C)])
 
         # Let the input columns absorb spare width so labels stay compact-left.
         self.name_grid.setColumnStretch(1, 1)
@@ -263,7 +278,7 @@ class Application(object):
                 self.combobox_nickname_placement, self.combobox_country,
                 self.combobox_province, self.combobox_weight,
                 self.combobox_height, self.combobox_attire1,
-                self.combobox_attire2]
+                self.combobox_attire2, self.combobox_selection_order]
 
     def set_enabled(self, enabled):
         """Grey out the editor until a file is loaded."""
@@ -414,13 +429,14 @@ class Application(object):
         self.combo_box_set_value(self.combobox_show, stat[8])
         self.combo_box_set_value(self.combobox_tactic, stat[9])
         self.combo_box_set_value(self.combobox_gender, stat[21])
-        self.combo_box_set_value(self.combobox_nickname_placement, stat[31])
+        self.combo_box_set_value(self.combobox_nickname_placement, stat[32])
         self.combo_box_set_value(self.combobox_country, stat[28])
         self.combo_box_set_value(self.combobox_province, stat[29])
         self.combo_box_set_value(self.combobox_weight, stat[22])
         self.combo_box_set_value(self.combobox_height, stat[13])
         self.combo_box_set_value(self.combobox_attire1, stat[25])
         self.combo_box_set_value(self.combobox_attire2, stat[26])
+        self.combo_box_set_value(self.combobox_selection_order, stat[31])
 
     def current_index(self):
         """Roster index (parsed hex) of the selected list row, or None."""
@@ -450,13 +466,14 @@ class Application(object):
             (LABEL_ENABLE, self.combobox_enable, 24),
             (LABEL_TACTIC, self.combobox_tactic, 9),
             (LABEL_GENDER, self.combobox_gender, 21),
-            (LABEL_NICKNAME_PLACEMENT, self.combobox_nickname_placement, 31),
+            (LABEL_NICKNAME_PLACEMENT, self.combobox_nickname_placement, 32),
             (LABEL_COUNTRY, self.combobox_country, 28),
             (LABEL_PROVINCE, self.combobox_province, 29),
             (LABEL_WEIGHT, self.combobox_weight, 22),
             (LABEL_HEIGHT, self.combobox_height, 13),
             (LABEL_ATTIRE1, self.combobox_attire1, 25),
             (LABEL_ATTIRE2, self.combobox_attire2, 26),
+            (LABEL_SELECTION_ORDER, self.combobox_selection_order, 31),
         ]
 
     def set_stat(self):
@@ -472,20 +489,20 @@ class Application(object):
                                     (LABEL_HUD_NAME, self.line_edit_hud_name, 19)):
             new = str(line_edit.text())
             if new != old[i]:
-                diffs.append("%s: %s -> %s" % (label, old[i], new))
+                diffs.append("%s: %s ---> %s" % (label, old[i], new))
             stat[i] = new
 
         # attributes (shown/logged x5)
         for suffix, label, i, row, col in STAT_FIELDS:
             new = self.stat_spinboxes[i].value() // 5
             if new != old[i]:
-                diffs.append("%s: %d -> %d" % (label.strip(), old[i] * 5, new * 5))
+                diffs.append("%s: %d ---> %d" % (label.strip(), old[i] * 5, new * 5))
             stat[i] = new
 
         # Show combobox is separated as it writes both stat[8] and its mirror stat[11]
         new_show = self.combo_box_get_value(self.combobox_show)
         if new_show != old[8]:
-            diffs.append("%s: %s -> %s" % (
+            diffs.append("%s: %s ---> %s" % (
                 LABEL_SHOW,
                 self.combo_text_for_value(self.combobox_show, old[8]),
                 self.combobox_show.currentText()))
@@ -495,7 +512,7 @@ class Application(object):
         for label, combo, i in self.combo_diff_fields():
             new = self.combo_box_get_value(combo)
             if new != old[i]:
-                diffs.append("%s: %s -> %s" % (
+                diffs.append("%s: %s ---> %s" % (
                     label, self.combo_text_for_value(combo, old[i]),
                     combo.currentText()))
             stat[i] = new
