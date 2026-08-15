@@ -36,7 +36,7 @@ STAT_FIELDS = [
 # always match. Rename a field here to rename it everywhere. (Attribute labels
 # live in STAT_FIELDS above, which is already the single source for those.)
 LABEL_NAME = "Name"
-LABEL_NICKNAME = "Nick Name"
+LABEL_NICKNAME = "Nickname"
 LABEL_HUD_NAME = "HUD Name"
 LABEL_ENABLE = "Enable"
 LABEL_SHOW = "Show"

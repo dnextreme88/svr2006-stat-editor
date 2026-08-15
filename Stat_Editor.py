@@ -71,7 +71,7 @@ FIELDS = [
     (14,  16,  2, "raw"),   # raw / unknown       (0x10-0x11)
     (15,  18,  22, "str"),  # Name                (0x12-0x27)
     (16,  40,  24, "raw"),  # raw / unknown       (0x28-0x3F)
-    (17,  64,  20, "str"),  # Nick Name           (0x40-0x53)
+    (17,  64,  20, "str"),  # Nickname            (0x40-0x53)
     (18,  84,  26, "raw"),  # raw / unknown       (0x54-0x6D)
     (19,  110, 10, "str"),  # HUD Name            (0x6E-0x77)
     (20,  120, 16, "raw"),  # raw / unknown       (0x78-0x87)
