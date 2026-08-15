@@ -138,6 +138,7 @@ class Application(object):
         self.sort_layout.addWidget(self.sort_combo, 1)
         self.sort_descending = False
         self.sort_direction_button = QPushButton("↑ Ascending")
+        self.sort_direction_button.setMinimumWidth(90)
         self.sort_direction_button.clicked.connect(self.toggle_sort_direction)
         self.sort_layout.addWidget(self.sort_direction_button)
         self.left_layout.addLayout(self.sort_layout)
