@@ -73,6 +73,20 @@ row. It only shows/hides rows — the parsed hex → `stat_list` index mapping i
 The roster labels are (re)built from `stat_list` in `update_superstar_list`, called on
 open (and after Save, which reopens the file).
 
+**Roster sort.** The left panel's "Sort by" combo (`Hex` / `Name` / `Selection Order`)
+plus an ascending/descending toggle button reorder the roster **display only**.
+`sorted_indices()` returns the `stat_list` indices in display order and **never mutates
+`stat_list`**: it starts from hex-ascending order and does a stable sort by the chosen
+key, so `Name`/`Selection Order` ties fall back to **hex ascending** (`0x10` before
+`0x27`) — hex is the deterministic unique-id tie-break — and that holds in descending
+mode too (Python's stable sort preserves tie order under `reverse=True`). `_populate_roster`
+rebuilds the widget items from `sorted_indices()`; `update_superstar_list` uses it on open,
+and `apply_sort` uses it on every sort change while preserving the selected superstar (by
+hex) and re-applying the active search filter. Because labels still carry the true hex
+index and `current_index()` resolves selection by that hex (not row position), reordering
+the widget can't change what gets edited — and since Save walks `stat_list` positionally
+(never the widget), the saved file keeps its original PAC order regardless of the sort.
+
 **Save:** `data_from_stat()` re-encodes each record → written to a temp file →
 recompressed by shelling out to `bpe.exe` → a `BPE ` header is prepended →
 `PAC.rebuild()` reassembles the archive as `<file>-NEW` (2048-byte aligned) → the
