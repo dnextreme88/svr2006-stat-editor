@@ -123,8 +123,26 @@ class Application(object):
         self.widget = QWidget()
         self.main_layout = QHBoxLayout()
 
-        # --- left panel: search box + roster list -----------------------------
+        # --- left panel: sort controls + search box + roster list -------------
         self.left_layout = QVBoxLayout()
+
+        # Sort row: display-only ordering of the roster. It reorders the list
+        # WIDGET via sorted_indices(); stat_list is never touched, so the saved
+        # file keeps its original PAC order (see apply_sort / sorted_indices).
+        self.sort_layout = QHBoxLayout()
+        self.sort_layout.addWidget(QLabel("Sort by"))
+        self.sort_combo = QComboBox()
+        for item in ("Hex", "Name", "Selection Order"):
+            self.sort_combo.addItem(item)
+        self.sort_combo.currentIndexChanged.connect(self.apply_sort)
+        self.sort_layout.addWidget(self.sort_combo, 1)
+        self.sort_descending = False
+        self.sort_direction_button = QPushButton("↑ Ascending")
+        self.sort_direction_button.setMinimumWidth(90)
+        self.sort_direction_button.clicked.connect(self.toggle_sort_direction)
+        self.sort_layout.addWidget(self.sort_direction_button)
+        self.left_layout.addLayout(self.sort_layout)
+
         self.search_box = QLineEdit()
         self.search_box.setPlaceholderText("Search by value (eg. Edge) or hex (eg. 0A)")
         self.search_box.textChanged.connect(self.filter_superstar_list)
@@ -200,11 +218,11 @@ class Application(object):
         attire = load_id_list("attire.txt", 2)
         self.combobox_attire1 = self._combo(LABEL_ATTIRE1, attire)
         self.combobox_attire2 = self._combo(LABEL_ATTIRE2, attire)
-        # Cardinal selection order: the byte is a fixed ordering slot (0x00-0x5B),
-        # NOT a superstar reference, so the items are the ordinals 1st..92nd.
+        # Cardinal selection order: the byte is a fixed ordering slot (0x00-0xA6),
+        # NOT a superstar reference, so the items are the ordinals 1st..167th.
         self.combobox_selection_order = self._combo(
             LABEL_SELECTION_ORDER,
-            ["0x%.2X : %s" % (v, ordinal(v + 1)) for v in range(0x5C)])
+            ["0x%.2X : %s" % (v, ordinal(v + 1)) for v in range(0xA7)])
 
         # Let the input columns absorb spare width so labels stay compact-left.
         self.name_grid.setColumnStretch(1, 1)
@@ -287,7 +305,8 @@ class Application(object):
                        + [self.line_edit_name, self.line_edit_nickname,
                           self.line_edit_hud_name, self.button_set,
                           self.button_default, self.list_superstar,
-                          self.search_box]):
+                          self.search_box, self.sort_combo,
+                          self.sort_direction_button]):
             widget.setEnabled(enabled)
 
     @staticmethod
@@ -386,15 +405,55 @@ class Application(object):
 
     # -- view refresh ---------------------------------------------------------
 
-    def update_superstar_list(self):
+    def sorted_indices(self):
+        """stat_list indices in current display order (does NOT touch stat_list).
+
+        The baseline is hex/index ascending; a stable sort by the chosen key then
+        keeps hex ascending within ties ("smaller hex wins as earlier"), even in
+        descending mode, so hex acts as a deterministic unique-id tie-break.
+        """
+        order = list(range(len(self.file.stat_list)))
+        key = {
+            0: lambda i: i,                                    # Hex
+            1: lambda i: self.file.stat_list[i][15].lower(),   # Name
+            2: lambda i: self.file.stat_list[i][31],           # Selection Order
+        }[self.sort_combo.currentIndex()]
+        order.sort(key=key, reverse=self.sort_descending)
+        return order
+
+    def _populate_roster(self):
+        """(Re)fill the roster widget in sorted order; caller manages selection."""
         self.list_superstar.blockSignals(True)
         self.list_superstar.clear()
-        for x in range(len(self.file.stat_list)):
+        for x in self.sorted_indices():
             self.list_superstar.addItem(
                 "0x%.2X : %s" % (x, self.file.stat_list[x][15]))
         self.list_superstar.blockSignals(False)
+
+    def update_superstar_list(self):
+        self._populate_roster()
         self.list_superstar.setCurrentRow(0)
         self.filter_superstar_list(self.search_box.text())
+
+    def toggle_sort_direction(self):
+        self.sort_descending = not self.sort_descending
+        self.sort_direction_button.setText(
+            "↓ Descending" if self.sort_descending else "↑ Ascending")
+        self.apply_sort()
+
+    def apply_sort(self):
+        """Reorder the roster in place, keeping the same superstar selected."""
+        if self.file is None:
+            return
+        keep = self.current_index()          # selected superstar, by hex
+        self._populate_roster()
+        target = 0
+        for row in range(self.list_superstar.count()):
+            if self.combo_box_get_int(self.list_superstar.item(row).text()) == keep:
+                target = row
+                break
+        self.list_superstar.setCurrentRow(target)
+        self.filter_superstar_list(self.search_box.text())   # re-apply active search
 
     def filter_superstar_list(self, text):
         """Hide roster rows whose label doesn't contain the query.

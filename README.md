@@ -51,7 +51,7 @@ There are 5 `.txt` files baked into the exe and the program prefers that they do
 
 ## Changes from the original
 
-Behaviour is the same — these are the fixes the port required or deserved.
+Some of these are fixes the port required or deserved; others are new features the original never had.
 
 **Required by Python 3**
 
@@ -60,6 +60,16 @@ Behaviour is the same — these are the fixes the port required or deserved.
 - `numpy` dropped; `yuke_bpe` uses a `bytearray` scratch buffer instead. That removes a ~30 MB dependency from the build.
 - PyQt4 → PyQt5: widgets moved to `QtWidgets`, and `len(combobox)` — which worked in PyQt4 — became `combobox.count()`.
 - `xrange` → `range`, `print` statement → function.
+
+**New features**
+
+- **Change log.** A full-width panel beneath the form records every "Set stat" as per-field diffs (`Field: old ---> new`) and logs Open/Save operations; resizing the window taller grows the log.
+- **Combo re-ordering.** The setting combo boxes and their labels were rearranged into a single-column order (Enable, Show, Tactic, Gender, Nickname Placement, Country, Province, Weight, Height, Attire 1, Attire 2, Selection Order) instead of the original's two-column grouping.
+- **Editable Selection Order.** Offset `0x9C`, previously preserved as a raw blob, is now an editable ordinal dropdown — `0x00 : 1st` through `0xA6 : 167th`.
+- **Nickname label.** The "Nick Name" field label was renamed to "Nickname".
+- **Roster list layout.** The single top superstar dropdown was replaced with a two-panel layout: a scrollable roster list on the left and a single-column editor form on the right.
+- **Roster search.** A search box above the roster filters it case-insensitively by name (e.g. `Edge`) or hex (e.g. `0A`).
+- **Roster sort.** The roster can be sorted by hex, name, or Selection Order, in ascending or descending order.
 
 **Bug fixes**
 
